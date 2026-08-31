@@ -32,7 +32,10 @@ The dataset contains hourly bike rental information from 2011 to 2012, including
 - Registered users
 - Total bike rentals
 
-The dataset was obtained from Kaggle.
+The dataset source is available on Kaggle:
+
+**Bike Sharing Dataset**  
+https://www.kaggle.com/datasets/lakshmi25npathi/bike-sharing-dataset
 
 ---
 

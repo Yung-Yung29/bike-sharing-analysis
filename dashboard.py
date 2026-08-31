@@ -22,9 +22,10 @@ st.set_page_config(
 
 @st.cache_data
 def load_data():
+
     df = pd.read_csv("main_data.csv")
 
-    # Convert date column
+    # Convert date column to datetime
     df["dteday"] = pd.to_datetime(df["dteday"])
 
     return df
@@ -55,49 +56,76 @@ st.markdown(
 st.sidebar.header("Dashboard Filters")
 
 
-# Year filter
-year_options = sorted(df["year"].dropna().unique())
+# ------------------------------------------------------------
+# DATE FILTER
+# ------------------------------------------------------------
 
-selected_year = st.sidebar.multiselect(
-    "Select Year",
-    options=year_options,
-    default=year_options
+min_date = df["dteday"].min().date()
+max_date = df["dteday"].max().date()
+
+selected_date_range = st.sidebar.date_input(
+    "Select Date Range",
+    value=(min_date, max_date),
+    min_value=min_date,
+    max_value=max_date
 )
 
+if len(selected_date_range) == 2:
 
-# Season filter
-season_options = sorted(
-    df["season_name"].dropna().unique()
+    start_date = selected_date_range[0]
+    end_date = selected_date_range[1]
+
+else:
+
+    start_date = min_date
+    end_date = max_date
+
+
+# ------------------------------------------------------------
+# SEASON FILTER
+# ------------------------------------------------------------
+
+season_options = [
+    "All Seasons"
+] + sorted(
+    df["season_name"].dropna().unique().tolist()
 )
 
-selected_season = st.sidebar.multiselect(
+selected_season = st.sidebar.selectbox(
     "Select Season",
-    options=season_options,
-    default=season_options
+    options=season_options
 )
 
 
-# Weather filter
-weather_options = sorted(
-    df["weather_name"].dropna().unique()
+# ------------------------------------------------------------
+# WEATHER FILTER
+# ------------------------------------------------------------
+
+weather_options = [
+    "All Weather Conditions"
+] + sorted(
+    df["weather_name"].dropna().unique().tolist()
 )
 
-selected_weather = st.sidebar.multiselect(
+selected_weather = st.sidebar.selectbox(
     "Select Weather Condition",
-    options=weather_options,
-    default=weather_options
+    options=weather_options
 )
 
 
-# Day type filter
-day_type_options = sorted(
-    df["day_type"].dropna().unique()
+# ------------------------------------------------------------
+# DAY TYPE FILTER
+# ------------------------------------------------------------
+
+day_type_options = [
+    "All Day Types"
+] + sorted(
+    df["day_type"].dropna().unique().tolist()
 )
 
-selected_day_type = st.sidebar.multiselect(
+selected_day_type = st.sidebar.selectbox(
     "Select Day Type",
-    options=day_type_options,
-    default=day_type_options
+    options=day_type_options
 )
 
 
@@ -106,19 +134,41 @@ selected_day_type = st.sidebar.multiselect(
 # ============================================================
 
 filtered_df = df[
-    (df["year"].isin(selected_year)) &
-    (df["season_name"].isin(selected_season)) &
-    (df["weather_name"].isin(selected_weather)) &
-    (df["day_type"].isin(selected_day_type))
+    (df["dteday"].dt.date >= start_date) &
+    (df["dteday"].dt.date <= end_date)
 ].copy()
 
 
-# Handle empty selections
+if selected_season != "All Seasons":
+
+    filtered_df = filtered_df[
+        filtered_df["season_name"] == selected_season
+    ]
+
+
+if selected_weather != "All Weather Conditions":
+
+    filtered_df = filtered_df[
+        filtered_df["weather_name"] == selected_weather
+    ]
+
+
+if selected_day_type != "All Day Types":
+
+    filtered_df = filtered_df[
+        filtered_df["day_type"] == selected_day_type
+    ]
+
+
+# ============================================================
+# HANDLE EMPTY DATA
+# ============================================================
+
 if filtered_df.empty:
 
     st.warning(
         "No data is available for the selected filters. "
-        "Please select at least one option from each filter."
+        "Please adjust your filter selections."
     )
 
     st.stop()
@@ -155,25 +205,33 @@ st.subheader("Key Performance Indicators")
 
 col1, col2, col3, col4 = st.columns(4)
 
+
 with col1:
+
     st.metric(
         "Total Rentals",
         f"{total_rentals:,.0f}"
     )
 
+
 with col2:
+
     st.metric(
         "Average Rentals / Hour",
         f"{average_rentals:,.2f}"
     )
 
+
 with col3:
+
     st.metric(
         "Peak Hour",
         f"{int(peak_hour):02d}:00"
     )
 
+
 with col4:
+
     st.metric(
         "Peak Average Demand",
         f"{peak_hour_demand:,.2f}"
@@ -189,6 +247,7 @@ st.divider()
 
 st.subheader("1. Hourly Bike Rental Demand")
 
+
 hourly_demand = (
     filtered_df
     .groupby(
@@ -203,6 +262,7 @@ fig1, ax1 = plt.subplots(
     figsize=(12, 5)
 )
 
+
 sns.lineplot(
     data=hourly_demand,
     x="hr",
@@ -211,6 +271,7 @@ sns.lineplot(
     marker="o",
     ax=ax1
 )
+
 
 ax1.set_title(
     "Average Bike Rental Demand by Hour and Day Type"
@@ -232,6 +293,7 @@ plt.tight_layout()
 
 st.pyplot(fig1)
 
+
 st.markdown(
     """
     **Business insight:** Working days tend to show stronger demand
@@ -245,15 +307,16 @@ st.markdown(
 # CHART 2 — WEATHER
 # ============================================================
 
-st.subheader("2. Bike Rental Demand by Weather Condition")
+st.subheader(
+    "2. Bike Rental Demand by Weather Condition"
+)
+
 
 weather_summary = (
     filtered_df
     .groupby("weather_name")["cnt"]
     .mean()
-    .sort_values(
-        ascending=False
-    )
+    .sort_values(ascending=False)
     .reset_index()
 )
 
@@ -262,12 +325,14 @@ fig2, ax2 = plt.subplots(
     figsize=(10, 5)
 )
 
+
 sns.barplot(
     data=weather_summary,
     x="weather_name",
     y="cnt",
     ax=ax2
 )
+
 
 ax2.set_title(
     "Average Bike Rental Demand by Weather Condition"
@@ -290,6 +355,7 @@ plt.tight_layout()
 
 st.pyplot(fig2)
 
+
 st.markdown(
     """
     **Business insight:** Rental demand is generally higher under
@@ -303,15 +369,16 @@ st.markdown(
 # CHART 3 — SEASON
 # ============================================================
 
-st.subheader("3. Bike Rental Demand by Season")
+st.subheader(
+    "3. Bike Rental Demand by Season"
+)
+
 
 season_summary = (
     filtered_df
     .groupby("season_name")["cnt"]
     .mean()
-    .sort_values(
-        ascending=False
-    )
+    .sort_values(ascending=False)
     .reset_index()
 )
 
@@ -320,6 +387,7 @@ fig3, ax3 = plt.subplots(
     figsize=(10, 5)
 )
 
+
 sns.barplot(
     data=season_summary,
     x="season_name",
@@ -327,13 +395,12 @@ sns.barplot(
     ax=ax3
 )
 
+
 ax3.set_title(
     "Average Bike Rental Demand by Season"
 )
 
-ax3.set_xlabel(
-    "Season"
-)
+ax3.set_xlabel("Season")
 
 ax3.set_ylabel(
     "Average Number of Rentals"
@@ -342,6 +409,7 @@ ax3.set_ylabel(
 plt.tight_layout()
 
 st.pyplot(fig3)
+
 
 st.markdown(
     """
@@ -356,9 +424,10 @@ st.markdown(
 # CHART 4 — DEMAND LEVEL
 # ============================================================
 
-st.subheader("4. Demand Level Distribution")
+st.subheader(
+    "4. Demand Level Distribution"
+)
 
-# Create demand categories using the filtered data
 
 filtered_df["demand_level"] = pd.qcut(
     filtered_df["cnt"],
@@ -379,6 +448,7 @@ demand_distribution = (
     .reset_index()
 )
 
+
 demand_distribution.columns = [
     "Demand Level",
     "Number of Observations"
@@ -389,12 +459,14 @@ fig4, ax4 = plt.subplots(
     figsize=(10, 5)
 )
 
+
 sns.barplot(
     data=demand_distribution,
     x="Demand Level",
     y="Number of Observations",
     ax=ax4
 )
+
 
 ax4.set_title(
     "Distribution of Bike Rental Demand Levels"
@@ -419,7 +491,10 @@ st.pyplot(fig4)
 
 st.divider()
 
-st.subheader("Operational Recommendations")
+st.subheader(
+    "Operational Recommendations"
+)
+
 
 st.markdown(
     """
@@ -454,9 +529,13 @@ with st.expander("View Filtered Dataset"):
 
     st.dataframe(
         filtered_df,
-        use_container_width=True
+        width="stretch"
     )
 
+
+# ============================================================
+# FOOTER
+# ============================================================
 
 st.caption(
     "Bike Sharing Dataset | Analysis period: 2011–2012"
